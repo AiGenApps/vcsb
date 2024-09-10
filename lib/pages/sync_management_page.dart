@@ -14,8 +14,8 @@ class SyncManagementPage extends StatefulWidget {
 }
 
 class _SyncManagementPageState extends State<SyncManagementPage> {
-  List<SyncScheme> _schemes = [];
-  SyncScheme? _selectedScheme;
+  List<SyncSchemeModel> _schemes = [];
+  SyncSchemeModel? _selectedScheme;
 
   @override
   void initState() {
@@ -44,7 +44,7 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
       final content = await file.readAsString();
       final List<dynamic> jsonData = jsonDecode(content);
       setState(() {
-        _schemes = jsonData.map((e) => SyncScheme.fromJson(e)).toList();
+        _schemes = jsonData.map((e) => SyncSchemeModel.fromJson(e)).toList();
       });
     }
   }
@@ -56,7 +56,7 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
     await file.writeAsString(content);
   }
 
-  void _executeAllOperations(SyncScheme scheme) {
+  void _executeAllOperations(SyncSchemeModel scheme) {
     // 执行方案中的所有同步操作
   }
 
@@ -66,12 +66,12 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
 
   void _addScheme() {
     setState(() {
-      _schemes.add(SyncScheme(name: '新方案', operations: []));
+      _schemes.add(SyncSchemeModel(name: '新方案', operations: []));
     });
     _saveSchemes();
   }
 
-  void _removeScheme(SyncScheme scheme) {
+  void _removeScheme(SyncSchemeModel scheme) {
     setState(() {
       _schemes.remove(scheme);
       if (_selectedScheme == scheme) {
@@ -81,18 +81,11 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
     _saveSchemes();
   }
 
-  void _addOperation(SyncScheme scheme) async {
-    String? sourcePath = await _pickDirectory();
-    if (sourcePath != null) {
-      String? targetPath = await _pickDirectory();
-      if (targetPath != null) {
-        setState(() {
-          scheme.operations
-              .add(SyncOperation(source: sourcePath, target: targetPath));
-        });
-        _saveSchemes();
-      }
-    }
+  void _addOperation(SyncSchemeModel scheme) {
+    setState(() {
+      scheme.operations.add(SyncOperation(source: '', target: ''));
+    });
+    _saveSchemes();
   }
 
   Future<String?> _pickDirectory() async {
@@ -100,14 +93,14 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
     return selectedDirectory;
   }
 
-  void _removeOperation(SyncScheme scheme, SyncOperation operation) {
+  void _removeOperation(SyncSchemeModel scheme, SyncOperation operation) {
     setState(() {
       scheme.operations.remove(operation);
     });
     _saveSchemes();
   }
 
-  void _editSchemeName(SyncScheme scheme) {
+  void _editSchemeName(SyncSchemeModel scheme) {
     TextEditingController controller = TextEditingController(text: scheme.name);
     showDialog(
       context: context,
