@@ -12,6 +12,8 @@ class HomePage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('VCSB'),
+          backgroundColor: Colors.grey[200],
+          elevation: 0,
         ),
         body: const TabBarView(
           children: [
@@ -19,15 +21,38 @@ class HomePage extends StatelessWidget {
             SystemEnvironmentPage(),
           ],
         ),
-        bottomNavigationBar: const TabBar(
-          tabs: [
-            Tab(text: '同步管理'),
-            Tab(text: '系统环境'),
-          ],
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey[500]!,
+                offset: Offset(4, 4),
+                blurRadius: 15,
+                spreadRadius: 1,
+              ),
+              BoxShadow(
+                color: Colors.white,
+                offset: Offset(-4, -4),
+                blurRadius: 15,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: TabBar(
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(50),
+              color: Colors.transparent,
+            ),
+            labelColor: Colors.blueAccent,
+            unselectedLabelColor: Colors.grey,
+            tabs: const [
+              Tab(icon: Icon(Icons.sync), text: '同步管理'),
+              Tab(icon: Icon(Icons.settings), text: '设置'),
+            ],
+          ),
         ),
       ),
     );
   }
 }
-
-// 删除项目管理的所有功能代码

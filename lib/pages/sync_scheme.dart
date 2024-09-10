@@ -44,17 +44,51 @@ class SyncScheme extends StatelessWidget {
     bool isTargetValid = isValidRepoType(targetRepoType);
 
     return Container(
-      color: isSourceValid && isTargetValid ? Colors.white : Colors.red,
+      decoration: BoxDecoration(
+        color: isSourceValid && isTargetValid ? Colors.grey[200] : Colors.red,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey[500]!,
+            offset: Offset(4, 4),
+            blurRadius: 15,
+            spreadRadius: 1,
+          ),
+          BoxShadow(
+            color: Colors.white,
+            offset: Offset(-4, -4),
+            blurRadius: 15,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
       child: Column(
         children: [
           // ... 现有代码 ...
-          ElevatedButton(
-            onPressed: isSourceValid && isTargetValid
-                ? () {
-                    // 同步操作代码
-                  }
-                : null,
-            child: const Text('同步操作'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ElevatedButton(
+                onPressed: isSourceValid && isTargetValid
+                    ? () {
+                        // 同步操作代码
+                      }
+                    : null,
+                child: const Text('同步操作'),
+              ),
+              if (!isSourceValid || !isTargetValid)
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    '源仓库或目标仓库类型不正确！',
+                    style: TextStyle(
+                      color: Colors.white,
+                      backgroundColor: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
           // ... 现有代码 ...
         ],

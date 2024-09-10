@@ -402,23 +402,50 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
                                                   const Divider(),
                                                   Row(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment.end,
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                     children: [
-                                                      IconButton(
-                                                        icon: const Icon(
-                                                            Icons.play_arrow),
-                                                        onPressed: () =>
-                                                            _executeOperation(
-                                                                operation),
+                                                      Row(
+                                                        children: [
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                                Icons
+                                                                    .play_arrow),
+                                                            onPressed: () =>
+                                                                _executeOperation(
+                                                                    operation),
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                                Icons.delete),
+                                                            onPressed: () =>
+                                                                _removeOperation(
+                                                                    _selectedScheme!,
+                                                                    operation),
+                                                          ),
+                                                        ],
                                                       ),
-                                                      IconButton(
-                                                        icon: const Icon(
-                                                            Icons.delete),
-                                                        onPressed: () =>
-                                                            _removeOperation(
-                                                                _selectedScheme!,
-                                                                operation),
-                                                      ),
+                                                      if (sourceRepoType ==
+                                                              '未知类型' ||
+                                                          targetRepoType ==
+                                                              '未知类型')
+                                                        Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(8.0),
+                                                          child: Text(
+                                                            '源仓库或目标仓库类型不正确！',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                              backgroundColor:
+                                                                  Colors.red,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                          ),
+                                                        ),
                                                     ],
                                                   ),
                                                 ],
