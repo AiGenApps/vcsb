@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'sync_scheme.dart';
+import 'sync_operation.dart';
 
 class SyncManagementPage extends StatefulWidget {
   const SyncManagementPage({super.key});
@@ -446,49 +448,5 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
         ),
       ],
     );
-  }
-}
-
-class SyncScheme {
-  String name;
-  final List<SyncOperation> operations;
-
-  SyncScheme({required this.name, required this.operations});
-
-  factory SyncScheme.fromJson(Map<String, dynamic> json) {
-    return SyncScheme(
-      name: json['name'],
-      operations: (json['operations'] as List)
-          .map((e) => SyncOperation.fromJson(e))
-          .toList(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'operations': operations.map((e) => e.toJson()).toList(),
-    };
-  }
-}
-
-class SyncOperation {
-  String source;
-  String target;
-
-  SyncOperation({required this.source, required this.target});
-
-  factory SyncOperation.fromJson(Map<String, dynamic> json) {
-    return SyncOperation(
-      source: json['source'],
-      target: json['target'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'source': source,
-      'target': target,
-    };
   }
 }
