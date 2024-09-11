@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/sync_operation.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 
 class OperationCard extends StatelessWidget {
   final SyncOperation operation;
@@ -78,12 +80,19 @@ class OperationCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                  isSource ? Icons.folder_open : Icons.drive_folder_upload),
+              onPressed: () => _editPath(context, isSource),
+              color: Colors.blue,
+            ),
+            if (isSource) ...[
+              _buildRepoTypeIcon(path),
+              Expanded(child: _buildRemoteUrl(path)),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -102,20 +111,74 @@ class OperationCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => _editPath(context, isSource),
-          icon: Icon(isSource ? Icons.folder_open : Icons.drive_folder_upload),
-          label: Text(isSource ? '选择源路径' : '选择目标路径'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.blue, // 设置文字和图标颜色
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        ),
       ],
     );
+  }
+
+  Widget _buildRepoTypeIcon(String repoPath) {
+    String iconPath = _getRepoTypeIconPath(repoPath);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Image.asset(
+        iconPath,
+        width: 24,
+        height: 24,
+      ),
+    );
+  }
+
+  Widget _buildRemoteUrl(String repoPath) {
+    String remoteUrl = _getRemoteUrl(repoPath);
+    return Text(
+      remoteUrl,
+      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  String _getRemoteUrl(String repoPath) {
+    if (_isGitRepo(repoPath)) {
+      return _getGitRemoteUrl(repoPath);
+    } else if (_isSvnRepo(repoPath)) {
+      return _getSvnRemoteUrl(repoPath);
+    }
+    return '未知远程地址';
+  }
+
+  String _getGitRemoteUrl(String repoPath) {
+    try {
+      var result = Process.runSync(
+          'git', ['config', '--get', 'remote.origin.url'],
+          workingDirectory: repoPath);
+      if (result.exitCode == 0) {
+        return result.stdout.toString().trim();
+      }
+    } catch (e) {
+      print('获取 Git 远程地址时出错: $e');
+    }
+    return 'Git 远程地址未知';
+  }
+
+  String _getSvnRemoteUrl(String repoPath) {
+    try {
+      var result = Process.runSync('svn', ['info', '--show-item', 'url'],
+          workingDirectory: repoPath);
+      if (result.exitCode == 0) {
+        return result.stdout.toString().trim();
+      }
+    } catch (e) {
+      print('获取 SVN 远程地址时出错: $e');
+    }
+    return 'SVN 远程地址未知';
+  }
+
+  bool _isGitRepo(String repoPath) {
+    return Directory(path.join(repoPath, '.git')).existsSync();
+  }
+
+  bool _isSvnRepo(String repoPath) {
+    return Directory(path.join(repoPath, '.svn')).existsSync();
   }
 
   void _editPath(BuildContext context, bool isSource) async {
@@ -146,6 +209,16 @@ class OperationCard extends StatelessWidget {
 
     if (newPath != null) {
       onUpdate(isSource ? newPath : null, isSource ? null : newPath);
+    }
+  }
+
+  String _getRepoTypeIconPath(String repoPath) {
+    if (_isGitRepo(repoPath)) {
+      return 'assets/images/git.png';
+    } else if (_isSvnRepo(repoPath)) {
+      return 'assets/images/svn.png';
+    } else {
+      return 'assets/images/unknown.png'; // 你可能需要添加一个未知类型的图标
     }
   }
 }
