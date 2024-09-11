@@ -286,28 +286,32 @@ class SchemeListView extends StatelessWidget {
               final scheme = schemes[index];
               return Card(
                 margin: const EdgeInsets.all(8.0),
-                child: ListTile(
-                  title: Text(
-                    scheme.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                child: InkWell(
                   onTap: () => onSelectScheme(scheme),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => onEditSchemeName(scheme),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow),
-                        onPressed: () => onExecuteScheme(scheme),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => onRemoveScheme(scheme),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            scheme.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => onEditSchemeName(scheme),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.play_arrow),
+                          onPressed: () => onExecuteScheme(scheme),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () => onRemoveScheme(scheme),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
