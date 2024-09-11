@@ -87,7 +87,7 @@ class OperationCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Container(
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.grey[200],
             borderRadius: BorderRadius.circular(8),

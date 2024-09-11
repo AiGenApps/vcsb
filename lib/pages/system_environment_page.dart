@@ -21,16 +21,27 @@ class _SystemEnvironmentPageState extends State<SystemEnvironmentPage> {
     _checkEnvironment();
   }
 
-  void _checkEnvironment() async {
-    final gitResult = await _checkCommand('git');
-    final svnResult = await _checkCommand('svn');
-    setState(() {
-      _gitSupported = gitResult.supported;
-      _svnSupported = svnResult.supported;
-      _gitVersion = gitResult.version;
-      _svnVersion = svnResult.version;
-      _isLoading = false;
-    });
+  Future<void> _checkEnvironment() async {
+    // 在异步操作开始前检查组件是否已经被销毁
+    if (!mounted) return;
+
+    try {
+      final gitResult = await _checkCommand('git');
+      final svnResult = await _checkCommand('svn');
+      // 在设置状态前再次检查组件是否已经被销毁
+      if (mounted) {
+        setState(() {
+          _gitSupported = gitResult.supported;
+          _svnSupported = svnResult.supported;
+          _gitVersion = gitResult.version;
+          _svnVersion = svnResult.version;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // 错误处理
+      print('环境检查出错: $e');
+    }
   }
 
   Future<CommandResult> _checkCommand(String command) async {
