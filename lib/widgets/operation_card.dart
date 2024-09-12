@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import '../models/sync_operation.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:file_picker/file_picker.dart';
 
-class OperationCard extends StatelessWidget {
+class OperationCard extends StatefulWidget {
   final SyncOperation operation;
   final VoidCallback onRemove;
   final Function(String?, String?) onUpdate;
   final VoidCallback onExecute;
+  final Future<String> Function(String, String?) onSync;
 
   const OperationCard({
     Key? key,
@@ -15,57 +17,86 @@ class OperationCard extends StatelessWidget {
     required this.onRemove,
     required this.onUpdate,
     required this.onExecute,
+    required this.onSync,
   }) : super(key: key);
+
+  @override
+  _OperationCardState createState() => _OperationCardState();
+}
+
+class _OperationCardState extends State<OperationCard> {
+  late TextEditingController sourceController;
+  late TextEditingController targetController;
+
+  @override
+  void initState() {
+    super.initState();
+    sourceController =
+        TextEditingController(text: widget.operation.sourceBranch ?? '');
+    targetController =
+        TextEditingController(text: widget.operation.targetBranch ?? '');
+  }
+
+  @override
+  void didUpdateWidget(OperationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.operation.sourceBranch != widget.operation.sourceBranch) {
+      sourceController.text = widget.operation.sourceBranch ?? '';
+    }
+    if (oldWidget.operation.targetBranch != widget.operation.targetBranch) {
+      targetController.text = widget.operation.targetBranch ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    sourceController.dispose();
+    targetController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
-      color: Colors.blue[50], // 添加淡蓝色背景
+      color: Colors.blue[50],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildRepoInfo(context, '源仓库', operation.source, true),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  height: 120,
-                  width: 1,
-                  color: Colors.grey[300],
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child:
-                      _buildRepoInfo(context, '目标仓库', operation.target, false),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: onExecute,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('执行同步'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, // 改为蓝色，与卡片背景协调
-                    foregroundColor: Colors.white, // 设置文字颜色为白色
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child:
+                        _buildRepoInfo(context, widget.operation.source, true),
                   ),
-                ),
+                  SizedBox(width: 8),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: Colors.grey[300],
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child:
+                        _buildRepoInfo(context, widget.operation.target, false),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: onRemove,
+                  icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                  onPressed: widget.onRemove,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
@@ -75,41 +106,76 @@ class OperationCard extends StatelessWidget {
     );
   }
 
-  Widget _buildRepoInfo(
-      BuildContext context, String title, String path, bool isSource) {
+  Widget _buildRepoInfo(BuildContext context, String path, bool isSource) {
+    bool isGitRepo = path.isNotEmpty && _isGitRepo(path);
+    bool isSvnRepo = path.isNotEmpty && _isSvnRepo(path);
+    bool isValidRepo = isGitRepo || isSvnRepo;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            IconButton(
-              icon: Icon(
-                  isSource ? Icons.folder_open : Icons.drive_folder_upload),
-              onPressed: () => _editPath(context, isSource),
-              color: Colors.blue,
-            ),
-            if (isSource) ...[
-              _buildRepoTypeIcon(path),
-              Expanded(child: _buildRemoteUrl(path)),
+            _buildRepoTypeIcon(path),
+            SizedBox(width: 4),
+            if (isValidRepo)
+              Expanded(child: _buildRemoteUrl(path))
+            else
+              Expanded(
+                child: Text(
+                  '请选择仓库目录',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+              ),
+            if (isGitRepo) ...[
+              SizedBox(width: 4),
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: isSource ? sourceController : targetController,
+                  decoration: InputDecoration(
+                    hintText: '分支',
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    isDense: true,
+                  ),
+                  style: TextStyle(fontSize: 10),
+                  onChanged: (value) {
+                    if (isSource) {
+                      widget.operation.sourceBranch = value;
+                    } else {
+                      widget.operation.targetBranch = value;
+                    }
+                    widget.onUpdate(
+                        widget.operation.source, widget.operation.target);
+                  },
+                ),
+              ),
             ],
+            SizedBox(width: 4),
+            IconButton(
+              icon: Icon(Icons.sync, size: 18),
+              onPressed: isValidRepo ? () => _syncRepo(path, isSource) : null,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(),
+            ),
+            IconButton(
+              icon: Icon(Icons.folder_open, size: 18),
+              onPressed: () => _editPath(context, isSource),
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(),
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            path,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: Colors.black87),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+        SizedBox(height: 4),
+        Text(
+          path.isEmpty ? '未选择目录' : path,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: path.isEmpty ? Colors.red : Colors.black87),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -118,11 +184,11 @@ class OperationCard extends StatelessWidget {
   Widget _buildRepoTypeIcon(String repoPath) {
     String iconPath = _getRepoTypeIconPath(repoPath);
     return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
+      padding: const EdgeInsets.only(right: 4.0),
       child: Image.asset(
         iconPath,
-        width: 24,
-        height: 24,
+        width: 16,
+        height: 16,
       ),
     );
   }
@@ -131,7 +197,7 @@ class OperationCard extends StatelessWidget {
     String remoteUrl = _getRemoteUrl(repoPath);
     return Text(
       remoteUrl,
-      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -174,51 +240,96 @@ class OperationCard extends StatelessWidget {
   }
 
   bool _isGitRepo(String repoPath) {
-    return Directory(path.join(repoPath, '.git')).existsSync();
+    return repoPath.isNotEmpty &&
+        Directory(path.join(repoPath, '.git')).existsSync();
   }
 
   bool _isSvnRepo(String repoPath) {
-    return Directory(path.join(repoPath, '.svn')).existsSync();
+    return repoPath.isNotEmpty &&
+        Directory(path.join(repoPath, '.svn')).existsSync();
   }
 
-  void _editPath(BuildContext context, bool isSource) async {
-    // 这里可以实现选择路径的逻辑，例如使用 FilePicker
-    // 暂时用一个简单的对话框代替
-    String? newPath = await showDialog<String>(
+  void _syncRepo(String repoPath, bool isSource) async {
+    // 显示警告对话框
+    bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(isSource ? '编辑源路径' : '编辑目标路径'),
-          content: TextField(
-            decoration: InputDecoration(hintText: "输入新路径"),
-          ),
+          title: Text('警告'),
+          content: Text('此操作将强制覆盖本地更改。您确定要继续吗？'),
           actions: <Widget>[
             TextButton(
-              child: const Text('取消'),
-              onPressed: () => Navigator.of(context).pop(),
+              child: Text('取消'),
+              onPressed: () => Navigator.of(context).pop(false),
             ),
             TextButton(
-              child: const Text('确定'),
-              onPressed: () =>
-                  Navigator.of(context).pop('新路径'), // 这里应该返回实际输入的路径
+              child: Text('确定'),
+              onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
         );
       },
     );
 
-    if (newPath != null) {
-      onUpdate(isSource ? newPath : null, isSource ? null : newPath);
+    if (confirm == true) {
+      String result;
+      if (_isGitRepo(repoPath)) {
+        result = await widget.onSync(
+            repoPath,
+            isSource
+                ? widget.operation.sourceBranch
+                : widget.operation.targetBranch);
+      } else if (_isSvnRepo(repoPath)) {
+        result = await widget.onSync(repoPath, null);
+      } else {
+        result = "未知仓库类型";
+      }
+
+      // 显示同步结果弹窗
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('同步结果'),
+              content: SingleChildScrollView(
+                child: SelectableText(result),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('确定'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
+  }
+
+  void _editPath(BuildContext context, bool isSource) async {
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: isSource ? '选择源路径' : '选择目标路径',
+    );
+
+    if (selectedDirectory != null) {
+      widget.onUpdate(isSource ? selectedDirectory : null,
+          isSource ? null : selectedDirectory);
     }
   }
 
   String _getRepoTypeIconPath(String repoPath) {
-    if (_isGitRepo(repoPath)) {
+    if (repoPath.isEmpty) {
+      return 'assets/images/unknown.png';
+    } else if (_isGitRepo(repoPath)) {
       return 'assets/images/git.png';
     } else if (_isSvnRepo(repoPath)) {
       return 'assets/images/svn.png';
     } else {
-      return 'assets/images/unknown.png'; // 你可能需要添加一个未知类型的图标
+      return 'assets/images/unknown.png';
     }
   }
 }
