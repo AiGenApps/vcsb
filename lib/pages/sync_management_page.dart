@@ -92,7 +92,12 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
 
   void _addOperation(SyncSchemeModel scheme) {
     setState(() {
-      scheme.operations.add(SyncOperation(source: '', target: ''));
+      SyncOperation newOperation = SyncOperation(
+        source: '',
+        target: '',
+        name: '新建操作 ${scheme.operations.length + 1}', // 添加这一行
+      );
+      scheme.operations.add(newOperation);
     });
     _saveSchemes();
   }

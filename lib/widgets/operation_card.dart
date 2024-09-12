@@ -27,6 +27,7 @@ class OperationCard extends StatefulWidget {
 class _OperationCardState extends State<OperationCard> {
   late TextEditingController sourceController;
   late TextEditingController targetController;
+  late TextEditingController nameController;
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _OperationCardState extends State<OperationCard> {
         TextEditingController(text: widget.operation.sourceBranch ?? '');
     targetController =
         TextEditingController(text: widget.operation.targetBranch ?? '');
+    nameController = TextEditingController(text: widget.operation.name);
   }
 
   @override
@@ -46,12 +48,16 @@ class _OperationCardState extends State<OperationCard> {
     if (oldWidget.operation.targetBranch != widget.operation.targetBranch) {
       targetController.text = widget.operation.targetBranch ?? '';
     }
+    if (oldWidget.operation.name != widget.operation.name) {
+      nameController.text = widget.operation.name;
+    }
   }
 
   @override
   void dispose() {
     sourceController.dispose();
     targetController.dispose();
+    nameController.dispose();
     super.dispose();
   }
 
@@ -66,6 +72,7 @@ class _OperationCardState extends State<OperationCard> {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
+            _buildNameField(),
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,7 +100,7 @@ class _OperationCardState extends State<OperationCard> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                  icon: const Icon(Icons.delete, color: Colors.red, size: 24),
                   onPressed: widget.onRemove,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -102,6 +109,25 @@ class _OperationCardState extends State<OperationCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNameField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: TextField(
+        controller: nameController,
+        decoration: InputDecoration(
+          labelText: '操作名称',
+          border: OutlineInputBorder(),
+          labelStyle: TextStyle(fontSize: 16),
+        ),
+        style: TextStyle(fontSize: 16),
+        onChanged: (value) {
+          widget.operation.name = value;
+          widget.onUpdate(widget.operation.source, widget.operation.target);
+        },
       ),
     );
   }
@@ -124,7 +150,7 @@ class _OperationCardState extends State<OperationCard> {
               Expanded(
                 child: Text(
                   '请选择仓库目录',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ),
             if (isGitRepo) ...[
@@ -139,7 +165,7 @@ class _OperationCardState extends State<OperationCard> {
                         EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                     isDense: true,
                   ),
-                  style: TextStyle(fontSize: 10),
+                  style: TextStyle(fontSize: 14),
                   onChanged: (value) {
                     if (isSource) {
                       widget.operation.sourceBranch = value;
@@ -154,13 +180,13 @@ class _OperationCardState extends State<OperationCard> {
             ],
             SizedBox(width: 4),
             IconButton(
-              icon: Icon(Icons.sync, size: 18),
+              icon: Icon(Icons.sync, size: 24),
               onPressed: isValidRepo ? () => _syncRepo(path, isSource) : null,
               padding: EdgeInsets.zero,
               constraints: BoxConstraints(),
             ),
             IconButton(
-              icon: Icon(Icons.folder_open, size: 18),
+              icon: Icon(Icons.folder_open, size: 24),
               onPressed: () => _editPath(context, isSource),
               padding: EdgeInsets.zero,
               constraints: BoxConstraints(),
@@ -170,10 +196,9 @@ class _OperationCardState extends State<OperationCard> {
         SizedBox(height: 4),
         Text(
           path.isEmpty ? '未选择目录' : path,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: path.isEmpty ? Colors.red : Colors.black87),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: path.isEmpty ? Colors.red : Colors.black87,
+              ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -187,8 +212,8 @@ class _OperationCardState extends State<OperationCard> {
       padding: const EdgeInsets.only(right: 4.0),
       child: Image.asset(
         iconPath,
-        width: 16,
-        height: 16,
+        width: 24,
+        height: 24,
       ),
     );
   }
@@ -197,7 +222,7 @@ class _OperationCardState extends State<OperationCard> {
     String remoteUrl = _getRemoteUrl(repoPath);
     return Text(
       remoteUrl,
-      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -250,7 +275,6 @@ class _OperationCardState extends State<OperationCard> {
   }
 
   void _syncRepo(String repoPath, bool isSource) async {
-    // 显示警告对话框
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -285,7 +309,6 @@ class _OperationCardState extends State<OperationCard> {
         result = "未知仓库类型";
       }
 
-      // 显示同步结果弹窗
       if (mounted) {
         showDialog(
           context: context,

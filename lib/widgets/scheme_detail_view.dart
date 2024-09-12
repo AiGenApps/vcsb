@@ -79,16 +79,31 @@ class SchemeDetailView extends StatelessWidget {
     }
   }
 
+  void _addOperation(SyncSchemeModel scheme) {
+    final newOperation = SyncOperation(
+      source: '',
+      target: '',
+      name: '新建操作 ${scheme.operations.length + 1}', // 提供默认名称
+    );
+    onAddOperation(scheme);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Text('同步方案: ${scheme.name}',
             style: Theme.of(context).textTheme.titleLarge),
-        ElevatedButton(
-          onPressed: () => onAddOperation(scheme),
-          child: const Text('添加同步操作'),
+        SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: () => _addOperation(scheme),
+          icon: Icon(Icons.add, size: 24),
+          label: Text('添加同步操作', style: TextStyle(fontSize: 16)),
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
         ),
+        SizedBox(height: 16),
         Expanded(
           child: ListView.builder(
             itemCount: scheme.operations.length,
