@@ -10,6 +10,7 @@ class OperationCard extends StatefulWidget {
   final Function(String?, String?) onUpdate;
   final VoidCallback onExecute;
   final Future<String> Function(String, String?) onSync;
+  final Function(SyncOperation) onDuplicate; // 新增复制操作的回调函数
 
   const OperationCard({
     Key? key,
@@ -18,6 +19,7 @@ class OperationCard extends StatefulWidget {
     required this.onUpdate,
     required this.onExecute,
     required this.onSync,
+    required this.onDuplicate, // 新增
   }) : super(key: key);
 
   @override
@@ -100,10 +102,20 @@ class _OperationCardState extends State<OperationCard> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
+                  icon: const Icon(Icons.content_copy,
+                      color: Colors.blue, size: 24),
+                  onPressed: _duplicateOperation,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: '复制操作',
+                ),
+                SizedBox(width: 8),
+                IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red, size: 24),
                   onPressed: widget.onRemove,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
+                  tooltip: '删除操作',
                 ),
               ],
             ),
@@ -354,5 +366,16 @@ class _OperationCardState extends State<OperationCard> {
     } else {
       return 'assets/images/unknown.png';
     }
+  }
+
+  void _duplicateOperation() {
+    final newOperation = SyncOperation(
+      name: '${widget.operation.name} 副本',
+      source: widget.operation.source,
+      target: widget.operation.target,
+      sourceBranch: widget.operation.sourceBranch,
+      targetBranch: widget.operation.targetBranch,
+    );
+    widget.onDuplicate(newOperation); // 调用新的回调函数
   }
 }

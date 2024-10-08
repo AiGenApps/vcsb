@@ -7,6 +7,7 @@ import '../models/sync_scheme.dart';
 import '../models/sync_operation.dart';
 import '../widgets/scheme_list_view.dart';
 import '../widgets/scheme_detail_view.dart';
+import 'dart:math' as math;
 
 class SyncManagementPage extends StatefulWidget {
   const SyncManagementPage({super.key});
@@ -15,14 +16,28 @@ class SyncManagementPage extends StatefulWidget {
   _SyncManagementPageState createState() => _SyncManagementPageState();
 }
 
-class _SyncManagementPageState extends State<SyncManagementPage> {
+class _SyncManagementPageState extends State<SyncManagementPage>
+    with SingleTickerProviderStateMixin {
   List<SyncSchemeModel> _schemes = [];
   SyncSchemeModel? _selectedScheme;
+  bool _isLoading = true;
+  bool _isSyncing = false;
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
     _loadSchemes();
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<String> _getFilePath() async {
@@ -39,16 +54,22 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
     return filePath;
   }
 
-  void _loadSchemes() async {
+  Future<void> _loadSchemes() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     final filePath = await _getFilePath();
     final file = File(filePath);
     if (await file.exists()) {
       final content = await file.readAsString();
       final List<dynamic> jsonData = jsonDecode(content);
-      setState(() {
-        _schemes = jsonData.map((e) => SyncSchemeModel.fromJson(e)).toList();
-      });
+      _schemes = jsonData.map((e) => SyncSchemeModel.fromJson(e)).toList();
     }
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _saveSchemes() async {
@@ -107,11 +128,40 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
     return selectedDirectory;
   }
 
-  void _removeOperation(SyncSchemeModel scheme, SyncOperation operation) {
-    setState(() {
-      scheme.operations.remove(operation);
-    });
-    _saveSchemes();
+  Future<void> _removeOperation(
+      SyncSchemeModel scheme, SyncOperation operation) async {
+    // 显示确认对话框
+    bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('确认删除'),
+          content: const Text('您确定要删除这个同步操作吗？此操作不可撤销。'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('取消'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('删除'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    // 如果用户确认删除，则执行删除操作
+    if (confirmDelete == true) {
+      setState(() {
+        scheme.operations.remove(operation);
+      });
+      _saveSchemes();
+    }
   }
 
   void _updateOperation(SyncOperation operation,
@@ -169,6 +219,52 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
     }
   }
 
+  Future<void> _startSync() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      // 执行同步操作
+      // ...
+    } catch (e) {
+      // 错误处理
+      print('同步出错: $e');
+    } finally {
+      setState(() {
+        _isSyncing = false;
+      });
+    }
+  }
+
+  Widget _buildLoadingAnimation() {
+    return Center(
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (_, child) {
+          return Transform.rotate(
+            angle: _animationController.value * 2 * math.pi,
+            child: child,
+          );
+        },
+        child:
+            Icon(Icons.sync, size: 50, color: Theme.of(context).primaryColor),
+      ),
+    );
+  }
+
+  void _copyOperation(SyncSchemeModel scheme, SyncOperation operation) {
+    setState(() {
+      SyncOperation newOperation = SyncOperation(
+        source: operation.source,
+        target: operation.target,
+        name: '${operation.name} (复制)',
+      );
+      scheme.operations.add(newOperation);
+    });
+    _saveSchemes();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -189,15 +285,19 @@ class _SyncManagementPageState extends State<SyncManagementPage> {
         ),
         Expanded(
           flex: 2,
-          child: _selectedScheme == null
-              ? const Center(child: Text('请选择一个同步方案'))
-              : SchemeDetailView(
-                  scheme: _selectedScheme!,
-                  onAddOperation: _addOperation,
-                  onRemoveOperation: _removeOperation,
-                  onUpdateOperation: _updateOperation,
-                  onExecuteOperation: _executeOperation,
-                ),
+          child: _isLoading
+              ? _buildLoadingAnimation()
+              : _selectedScheme == null
+                  ? const Center(child: Text('请选择一个同步方案'))
+                  : SchemeDetailView(
+                      key: ValueKey(_selectedScheme),
+                      scheme: _selectedScheme!,
+                      onAddOperation: _addOperation,
+                      onRemoveOperation: _removeOperation,
+                      onUpdateOperation: _updateOperation,
+                      onExecuteOperation: _executeOperation,
+                      onCopyOperation: _copyOperation,
+                    ),
         ),
       ],
     );

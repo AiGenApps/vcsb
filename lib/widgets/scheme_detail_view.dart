@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:path/path.dart' as path; // 添加这行
+import 'package:path/path.dart' as path;
 import '../models/sync_scheme.dart';
 import '../models/sync_operation.dart';
 import 'operation_card.dart';
 
-class SchemeDetailView extends StatelessWidget {
+class SchemeDetailView extends StatefulWidget {
   final SyncSchemeModel scheme;
   final Function(SyncSchemeModel) onAddOperation;
   final Function(SyncSchemeModel, SyncOperation) onRemoveOperation;
   final Function(SyncOperation, {String? source, String? target})
       onUpdateOperation;
   final Function(SyncOperation) onExecuteOperation;
+  final Function(SyncSchemeModel, SyncOperation) onCopyOperation;
 
   const SchemeDetailView({
     Key? key,
@@ -21,8 +22,14 @@ class SchemeDetailView extends StatelessWidget {
     required this.onRemoveOperation,
     required this.onUpdateOperation,
     required this.onExecuteOperation,
+    required this.onCopyOperation,
   }) : super(key: key);
 
+  @override
+  _SchemeDetailViewState createState() => _SchemeDetailViewState();
+}
+
+class _SchemeDetailViewState extends State<SchemeDetailView> {
   Future<String> _syncRepo(String repoPath, String? branch) async {
     try {
       if (Directory(path.join(repoPath, '.git')).existsSync()) {
@@ -79,24 +86,52 @@ class SchemeDetailView extends StatelessWidget {
     }
   }
 
-  void _addOperation(SyncSchemeModel scheme) {
-    final newOperation = SyncOperation(
-      source: '',
-      target: '',
-      name: '新建操作 ${scheme.operations.length + 1}', // 提供默认名称
+  Future<void> _showCopyConfirmDialog(SyncOperation operation) async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('确认复制'),
+          content: Text('您确定要复制这个同步操作吗？'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('取消'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: Text('确定'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
     );
-    onAddOperation(scheme);
+
+    if (confirm == true) {
+      final newOperation = SyncOperation(
+        name: '${operation.name} 副本',
+        source: operation.source,
+        target: operation.target,
+        sourceBranch: operation.sourceBranch,
+        targetBranch: operation.targetBranch,
+      );
+      widget.onCopyOperation(widget.scheme, newOperation);
+    }
+  }
+
+  void _duplicateOperation(SyncOperation operation) {
+    _showCopyConfirmDialog(operation);
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text('同步方案: ${scheme.name}',
+        Text('同步方案: ${widget.scheme.name}',
             style: Theme.of(context).textTheme.titleLarge),
         SizedBox(height: 8),
         ElevatedButton.icon(
-          onPressed: () => _addOperation(scheme),
+          onPressed: () => widget.onAddOperation(widget.scheme),
           icon: Icon(Icons.add, size: 24),
           label: Text('添加同步操作', style: TextStyle(fontSize: 16)),
           style: ElevatedButton.styleFrom(
@@ -106,16 +141,20 @@ class SchemeDetailView extends StatelessWidget {
         SizedBox(height: 16),
         Expanded(
           child: ListView.builder(
-            itemCount: scheme.operations.length,
+            itemCount: widget.scheme.operations.length,
             itemBuilder: (context, index) {
-              final operation = scheme.operations[index];
+              final operation = widget.scheme.operations[index];
               return OperationCard(
                 operation: operation,
-                onRemove: () => onRemoveOperation(scheme, operation),
-                onUpdate: (source, target) => onUpdateOperation(operation,
-                    source: source, target: target),
-                onExecute: () => onExecuteOperation(operation),
-                onSync: _syncRepo,
+                onRemove: () =>
+                    widget.onRemoveOperation(widget.scheme, operation),
+                onUpdate: (source, target) => widget.onUpdateOperation(
+                    operation,
+                    source: source,
+                    target: target),
+                onExecute: () => widget.onExecuteOperation(operation),
+                onSync: (path, branch) => _syncRepo(path, branch),
+                onDuplicate: (newOperation) => _duplicateOperation(operation),
               );
             },
           ),
