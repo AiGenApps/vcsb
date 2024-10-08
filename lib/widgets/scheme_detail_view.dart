@@ -123,6 +123,62 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
     _showCopyConfirmDialog(operation);
   }
 
+  Future<String> _fullSync(String sourcePath, String targetPath) async {
+    String result = "";
+
+    // 1. 同步源仓库
+    result += await _syncRepo(sourcePath, null);
+    result += "\n\n";
+
+    // 2. 同步目标仓库
+    result += await _syncRepo(targetPath, null);
+    result += "\n\n";
+
+    // 3. 删除目标仓库中的文件并复制源仓库文件
+    try {
+      // 删除目标仓库中的文件（除了版本控制文件）
+      await _deleteNonVersionControlFiles(targetPath);
+
+      // 复制源仓库文件到目标仓库
+      await _copyFiles(sourcePath, targetPath);
+
+      result += "文件同步完成。";
+    } catch (e) {
+      result += "文件同步过程中发生错误: $e";
+    }
+
+    return result;
+  }
+
+  Future<void> _deleteNonVersionControlFiles(String repoPath) async {
+    var dir = Directory(repoPath);
+    await for (var entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        var relativePath = path.relative(entity.path, from: repoPath);
+        if (!relativePath.startsWith('.git') &&
+            !relativePath.startsWith('.svn')) {
+          await entity.delete();
+        }
+      }
+    }
+  }
+
+  Future<void> _copyFiles(String sourcePath, String targetPath) async {
+    var sourceDir = Directory(sourcePath);
+    await for (var entity
+        in sourceDir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        var relativePath = path.relative(entity.path, from: sourcePath);
+        if (!relativePath.startsWith('.git') &&
+            !relativePath.startsWith('.svn')) {
+          var targetFile = File(path.join(targetPath, relativePath));
+          await targetFile.create(recursive: true);
+          await entity.copy(targetFile.path);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -155,6 +211,7 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
                 onExecute: () => widget.onExecuteOperation(operation),
                 onSync: (path, branch) => _syncRepo(path, branch),
                 onDuplicate: (newOperation) => _duplicateOperation(operation),
+                onFullSync: _fullSync, // 新增
               );
             },
           ),

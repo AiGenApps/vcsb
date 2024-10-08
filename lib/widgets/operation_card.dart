@@ -10,7 +10,8 @@ class OperationCard extends StatefulWidget {
   final Function(String?, String?) onUpdate;
   final VoidCallback onExecute;
   final Future<String> Function(String, String?) onSync;
-  final Function(SyncOperation) onDuplicate; // 新增复制操作的回调函数
+  final Function(SyncOperation) onDuplicate;
+  final Future<String> Function(String, String) onFullSync; // 新增全同步功能
 
   const OperationCard({
     Key? key,
@@ -19,7 +20,8 @@ class OperationCard extends StatefulWidget {
     required this.onUpdate,
     required this.onExecute,
     required this.onSync,
-    required this.onDuplicate, // 新增
+    required this.onDuplicate,
+    required this.onFullSync, // 新增
   }) : super(key: key);
 
   @override
@@ -101,6 +103,14 @@ class _OperationCardState extends State<OperationCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.sync, color: Colors.green, size: 24),
+                  onPressed: _fullSync,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: '全同步',
+                ),
+                SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.content_copy,
                       color: Colors.blue, size: 24),
@@ -377,5 +387,54 @@ class _OperationCardState extends State<OperationCard> {
       targetBranch: widget.operation.targetBranch,
     );
     widget.onDuplicate(newOperation); // 调用新的回调函数
+  }
+
+  void _fullSync() async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('确认全同步'),
+          content: Text('此操作将同步源仓库和目标仓库，并覆盖目标仓库中的文件。您确定要继续吗？'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('取消'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: Text('确定'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      String result = await widget.onFullSync(
+          widget.operation.source, widget.operation.target);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('全同步结果'),
+              content: SingleChildScrollView(
+                child: SelectableText(result),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('确定'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
   }
 }
