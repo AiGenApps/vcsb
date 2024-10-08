@@ -24,5 +24,3 @@ Ai Generated Version-Control-System Bridge.
 3、系统环境：
 
 - 检查当前环境是否支持git和svn命令
-
-// 删除项目管理的所有功能代码
