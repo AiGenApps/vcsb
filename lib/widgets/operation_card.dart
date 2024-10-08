@@ -12,6 +12,7 @@ class OperationCard extends StatefulWidget {
   final Future<String> Function(String, String?) onSync;
   final Function(SyncOperation) onDuplicate;
   final Future<String> Function(String, String) onFullSync; // 新增全同步功能
+  final Stream<String> syncStream;
 
   const OperationCard({
     Key? key,
@@ -21,7 +22,8 @@ class OperationCard extends StatefulWidget {
     required this.onExecute,
     required this.onSync,
     required this.onDuplicate,
-    required this.onFullSync, // 新增
+    required this.onFullSync,
+    required this.syncStream,
   }) : super(key: key);
 
   @override
@@ -32,6 +34,8 @@ class _OperationCardState extends State<OperationCard> {
   late TextEditingController sourceController;
   late TextEditingController targetController;
   late TextEditingController nameController;
+  List<String> _logLines = [];
+  ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -41,6 +45,19 @@ class _OperationCardState extends State<OperationCard> {
     targetController =
         TextEditingController(text: widget.operation.targetBranch ?? '');
     nameController = TextEditingController(text: widget.operation.name);
+
+    // 添加焦点监听器
+    sourceController.addListener(() => _onBranchChanged(true));
+    targetController.addListener(() => _onBranchChanged(false));
+    nameController.addListener(_onNameChanged);
+  }
+
+  void _onBranchChanged(bool isSource) {
+    // 不在这里立即更新，而是在失去焦点时更新
+  }
+
+  void _onNameChanged() {
+    // 不在这里立即更新，而是在失去焦点时更新
   }
 
   @override
@@ -62,6 +79,7 @@ class _OperationCardState extends State<OperationCard> {
     sourceController.dispose();
     targetController.dispose();
     nameController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -143,12 +161,11 @@ class _OperationCardState extends State<OperationCard> {
         decoration: InputDecoration(
           labelText: '操作名称',
           border: OutlineInputBorder(),
-          labelStyle: TextStyle(fontSize: 16),
         ),
-        style: TextStyle(fontSize: 16),
-        onChanged: (value) {
-          widget.operation.name = value;
-          widget.onUpdate(widget.operation.source, widget.operation.target);
+        onEditingComplete: () {
+          // 在编辑完成时更新操作名称
+          widget.onUpdate(null, null);
+          FocusScope.of(context).unfocus();
         },
       ),
     );
@@ -188,14 +205,15 @@ class _OperationCardState extends State<OperationCard> {
                     isDense: true,
                   ),
                   style: TextStyle(fontSize: 14),
-                  onChanged: (value) {
+                  onEditingComplete: () {
+                    // 在编辑完成时更新分支
                     if (isSource) {
-                      widget.operation.sourceBranch = value;
+                      widget.operation.sourceBranch = sourceController.text;
                     } else {
-                      widget.operation.targetBranch = value;
+                      widget.operation.targetBranch = targetController.text;
                     }
-                    widget.onUpdate(
-                        widget.operation.source, widget.operation.target);
+                    widget.onUpdate(null, null);
+                    FocusScope.of(context).unfocus();
                   },
                 ),
               ),
@@ -318,39 +336,63 @@ class _OperationCardState extends State<OperationCard> {
     );
 
     if (confirm == true) {
-      String result;
+      _logLines.clear(); // 清除之前的日志
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('同步进度'),
+            content: Container(
+              width: double.maxFinite,
+              height: 300,
+              child: StreamBuilder<String>(
+                stream: widget.syncStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    _logLines.add(snapshot.data!);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (_scrollController.hasClients) {
+                        _scrollController
+                            .jumpTo(_scrollController.position.maxScrollExtent);
+                      }
+                    });
+                  }
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _logLines.length,
+                    itemBuilder: (context, index) {
+                      return Text(
+                        _logLines[index],
+                        style: TextStyle(fontFamily: 'Courier'),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: Text('关闭'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+
       if (_isGitRepo(repoPath)) {
-        result = await widget.onSync(
+        await widget.onSync(
             repoPath,
             isSource
                 ? widget.operation.sourceBranch
                 : widget.operation.targetBranch);
       } else if (_isSvnRepo(repoPath)) {
-        result = await widget.onSync(repoPath, null);
+        await widget.onSync(repoPath, null);
       } else {
-        result = "未知仓库类型";
-      }
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('同步结果'),
-              content: SingleChildScrollView(
-                child: SelectableText(result),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: Text('确定'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
+        await widget.onSync(repoPath, null);
       }
     }
   }
@@ -411,30 +453,54 @@ class _OperationCardState extends State<OperationCard> {
     );
 
     if (confirm == true) {
-      String result = await widget.onFullSync(
-          widget.operation.source, widget.operation.target);
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('全同步结果'),
-              content: SingleChildScrollView(
-                child: SelectableText(result),
+      _logLines.clear(); // 清除之前的日志
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('全同步进度'),
+            content: Container(
+              width: double.maxFinite,
+              height: 300,
+              child: StreamBuilder<String>(
+                stream: widget.syncStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    _logLines.add(snapshot.data!);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (_scrollController.hasClients) {
+                        _scrollController
+                            .jumpTo(_scrollController.position.maxScrollExtent);
+                      }
+                    });
+                  }
+                  return ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _logLines.length,
+                    itemBuilder: (context, index) {
+                      return Text(
+                        _logLines[index],
+                        style: TextStyle(fontFamily: 'Courier'),
+                      );
+                    },
+                  );
+                },
               ),
-              actions: <Widget>[
-                TextButton(
-                  child: Text('确定'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      }
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: Text('关闭'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+
+      await widget.onFullSync(widget.operation.source, widget.operation.target);
     }
   }
 }
