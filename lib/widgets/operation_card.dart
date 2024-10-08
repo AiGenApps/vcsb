@@ -3,6 +3,7 @@ import '../models/sync_operation.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 
 class OperationCard extends StatefulWidget {
   final SyncOperation operation;
@@ -12,7 +13,7 @@ class OperationCard extends StatefulWidget {
   final Future<String> Function(String, String?) onSync;
   final Function(SyncOperation) onDuplicate;
   final Future<String> Function(String, String) onFullSync; // 新增全同步功能
-  final Stream<String> syncStream;
+  final ValueNotifier<List<String>> syncLogNotifier;
 
   const OperationCard({
     Key? key,
@@ -23,7 +24,7 @@ class OperationCard extends StatefulWidget {
     required this.onSync,
     required this.onDuplicate,
     required this.onFullSync,
-    required this.syncStream,
+    required this.syncLogNotifier,
   }) : super(key: key);
 
   @override
@@ -346,24 +347,21 @@ class _OperationCardState extends State<OperationCard> {
             content: Container(
               width: double.maxFinite,
               height: 300,
-              child: StreamBuilder<String>(
-                stream: widget.syncStream,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    _logLines.add(snapshot.data!);
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (_scrollController.hasClients) {
-                        _scrollController
-                            .jumpTo(_scrollController.position.maxScrollExtent);
-                      }
-                    });
-                  }
+              child: ValueListenableBuilder<List<String>>(
+                valueListenable: widget.syncLogNotifier,
+                builder: (context, logLines, child) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      _scrollController
+                          .jumpTo(_scrollController.position.maxScrollExtent);
+                    }
+                  });
                   return ListView.builder(
                     controller: _scrollController,
-                    itemCount: _logLines.length,
+                    itemCount: logLines.length,
                     itemBuilder: (context, index) {
                       return Text(
-                        _logLines[index],
+                        logLines[index],
                         style: TextStyle(fontFamily: 'Courier'),
                       );
                     },
@@ -463,24 +461,21 @@ class _OperationCardState extends State<OperationCard> {
             content: Container(
               width: double.maxFinite,
               height: 300,
-              child: StreamBuilder<String>(
-                stream: widget.syncStream,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    _logLines.add(snapshot.data!);
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (_scrollController.hasClients) {
-                        _scrollController
-                            .jumpTo(_scrollController.position.maxScrollExtent);
-                      }
-                    });
-                  }
+              child: ValueListenableBuilder<List<String>>(
+                valueListenable: widget.syncLogNotifier,
+                builder: (context, logLines, child) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_scrollController.hasClients) {
+                      _scrollController
+                          .jumpTo(_scrollController.position.maxScrollExtent);
+                    }
+                  });
                   return ListView.builder(
                     controller: _scrollController,
-                    itemCount: _logLines.length,
+                    itemCount: logLines.length,
                     itemBuilder: (context, index) {
                       return Text(
-                        _logLines[index],
+                        logLines[index],
                         style: TextStyle(fontFamily: 'Courier'),
                       );
                     },

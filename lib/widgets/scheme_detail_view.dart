@@ -6,6 +6,7 @@ import '../models/sync_scheme.dart';
 import '../models/sync_operation.dart';
 import 'operation_card.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class SchemeDetailView extends StatefulWidget {
   final SyncSchemeModel scheme;
@@ -31,13 +32,14 @@ class SchemeDetailView extends StatefulWidget {
 }
 
 class _SchemeDetailViewState extends State<SchemeDetailView> {
-  StreamController<String> _syncStreamController =
-      StreamController<String>.broadcast();
+  // 替换 StreamController 为 ValueNotifier
+  final ValueNotifier<List<String>> _syncLogNotifier =
+      ValueNotifier<List<String>>([]);
 
   Future<String> _syncRepo(String repoPath, String? branch) async {
-    print("_syncRepo called for $repoPath"); // 添加这行
+    print("_syncRepo called for $repoPath");
     String output = "";
-    _syncStreamController.add("开始同步仓库: $repoPath\n");
+    _addToSyncLog("开始同步仓库: $repoPath");
     try {
       if (Directory(path.join(repoPath, '.git')).existsSync()) {
         // Git 仓库同步
@@ -74,7 +76,7 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
 
         // 执行命令
         for (String cmd in commands) {
-          _syncStreamController.add("> $cmd\n");
+          _addToSyncLog("> $cmd");
           var parts = cmd.split(' ');
           var result = await Process.run(
             parts[0],
@@ -83,15 +85,15 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
             stdoutEncoding: const SystemEncoding(),
             stderrEncoding: const SystemEncoding(),
           );
-          String cmdOutput = "执行结果:\n${result.stdout}${result.stderr}\n";
+          String cmdOutput = "执行结果:\n${result.stdout}${result.stderr}";
           output += cmdOutput;
-          _syncStreamController.add(cmdOutput);
+          _addToSyncLog(cmdOutput);
         }
       } else if (Directory(path.join(repoPath, '.svn')).existsSync()) {
         // SVN 仓库同步
         List<String> command = ['svn', 'update'];
         String commandStr = command.join(' ');
-        _syncStreamController.add("> $commandStr\n"); // 添加这行来打印执行的命令
+        _addToSyncLog("> $commandStr");
         var result = await Process.run(
           command[0],
           command.sublist(1),
@@ -99,61 +101,60 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
           stdoutEncoding: const SystemEncoding(),
           stderrEncoding: const SystemEncoding(),
         );
-        String cmdOutput = "执行结果:\n${result.stdout}${result.stderr}\n";
+        String cmdOutput = "执行结果:\n${result.stdout}${result.stderr}";
         output += cmdOutput;
-        _syncStreamController.add(cmdOutput);
+        _addToSyncLog(cmdOutput);
       } else {
-        String errorMsg = "未知仓库类型\n";
+        String errorMsg = "未知仓库类型";
         output += errorMsg;
-        _syncStreamController.add(errorMsg);
+        _addToSyncLog(errorMsg);
       }
     } catch (e) {
-      String errorMsg = "同步过程中发生错误: $e\n";
+      String errorMsg = "同步过程中发生错误: $e";
       output += errorMsg;
-      _syncStreamController.add(errorMsg);
+      _addToSyncLog(errorMsg);
     }
-    _syncStreamController.add("仓库同步完成: $repoPath\n");
+    _addToSyncLog("仓库同步完成: $repoPath");
     return output;
   }
 
+  // 添加新的方法来更新日志
+  void _addToSyncLog(String message) {
+    _syncLogNotifier.value = [..._syncLogNotifier.value, message];
+  }
+
   Future<String> _fullSync(String sourcePath, String targetPath) async {
-    print("_fullSync called"); // 添加这行
+    print("_fullSync called");
     String output = "";
 
     // 步骤 1: 更新源仓库
-    _syncStreamController.add("步骤 1: 更新源仓库\n");
-    _syncStreamController.add("====================\n");
+    _addToSyncLog("步骤 1: 更新源仓库");
+    _addToSyncLog("====================");
     output += await _syncRepo(sourcePath, null);
-    _syncStreamController.add("\n步骤 1 完成\n\n");
 
     // 步骤 2: 更新目标仓库
-    _syncStreamController.add("步骤 2: 更新目标仓库\n");
-    _syncStreamController.add("====================\n");
+    _addToSyncLog("步骤 2: 更新目标仓库");
+    _addToSyncLog("====================");
     output += await _syncRepo(targetPath, null);
-    _syncStreamController.add("\n步骤 2 完成\n\n");
 
     // 步骤 3: 同步仓库
-    _syncStreamController.add("步骤 3: 同步仓库\n");
-    _syncStreamController.add("====================\n");
+    _addToSyncLog("步骤 3: 同步仓库");
+    _addToSyncLog("====================");
     try {
-      _syncStreamController.add("开始删除目标仓库中的非版本控制文件...\n");
+      _addToSyncLog("开始删除目标仓库中的非版本控制文件...");
       await _deleteNonVersionControlFiles(targetPath);
-      _syncStreamController.add("删除完成\n");
+      _addToSyncLog("删除完成");
 
-      _syncStreamController.add("\n开始复制源仓库文件到目标仓库...\n");
+      _addToSyncLog("开始复制源仓库文件到目标仓库...");
       await _copyFiles(sourcePath, targetPath);
-      _syncStreamController.add("复制完成\n");
-
-      String completeMsg = "\n步骤 3 完成\n";
-      output += completeMsg;
-      _syncStreamController.add(completeMsg);
+      _addToSyncLog("复制完成");
     } catch (e) {
-      String errorMsg = "\n同步过程中发生错误: $e\n";
+      String errorMsg = "同步过程中发生错误: $e";
       output += errorMsg;
-      _syncStreamController.add(errorMsg);
+      _addToSyncLog(errorMsg);
     }
 
-    _syncStreamController.add("\n全部同步操作完成。\n");
+    _addToSyncLog("全部同步操作完成。");
 
     return output;
   }
@@ -257,7 +258,7 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
                 onSync: (path, branch) => _syncRepo(path, branch),
                 onDuplicate: (newOperation) => _duplicateOperation(operation),
                 onFullSync: _fullSync,
-                syncStream: _syncStreamController.stream,
+                syncLogNotifier: _syncLogNotifier,
               );
             },
           ),
@@ -268,7 +269,7 @@ class _SchemeDetailViewState extends State<SchemeDetailView> {
 
   @override
   void dispose() {
-    _syncStreamController.close();
+    _syncLogNotifier.dispose();
     super.dispose();
   }
 }
