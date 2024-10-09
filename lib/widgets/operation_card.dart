@@ -86,6 +86,9 @@ class _OperationCardState extends State<OperationCard> {
 
   @override
   Widget build(BuildContext context) {
+    bool canFullSync = widget.operation.source.isNotEmpty &&
+        widget.operation.target.isNotEmpty;
+
     return Card(
       elevation: 4,
       color: Colors.blue[50],
@@ -124,10 +127,10 @@ class _OperationCardState extends State<OperationCard> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.sync, color: Colors.green, size: 24),
-                  onPressed: _fullSync,
+                  onPressed: canFullSync ? _fullSync : null,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  tooltip: '全同步',
+                  tooltip: canFullSync ? '全同步' : '请选择源仓库和目标仓库',
                 ),
                 SizedBox(width: 8),
                 IconButton(
@@ -430,6 +433,14 @@ class _OperationCardState extends State<OperationCard> {
   }
 
   void _fullSync() async {
+    if (!widget.operation.source.isNotEmpty ||
+        !widget.operation.target.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('请确保已选择源仓库和目标仓库')),
+      );
+      return;
+    }
+
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
